@@ -21,6 +21,7 @@ class FreeFallSimulator:
         pygame.init()
         self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
         pygame.display.set_caption("自由落体模拟")
+        # 是不是默认值
         self.clock = pygame.time.Clock()
         self.font = pygame.font.SysFont("SimHei", 24)
         self.small_font = pygame.font.SysFont("SimHei", 18)
@@ -30,7 +31,7 @@ class FreeFallSimulator:
         self.current_height = self.initial_height
         self.velocity = 0.0
         self.falling = True
-        self.rebound_count = 0
+        self.rebound_count = 0 # 跳跃次数
         self.time_elapsed = 0.0
         self.time_step = 0.1  # 默认时间步长
         
@@ -71,7 +72,7 @@ class FreeFallSimulator:
                     # 重置模拟
                     with self.lock:
                         self.current_height = self.initial_height
-                        self.velocity = 0.0
+                        self.velocity = 5.0
                         self.falling = True
                         self.rebound_count = 0
                         self.time_elapsed = 0.0
@@ -82,6 +83,10 @@ class FreeFallSimulator:
                     mouse_x, mouse_y = pygame.mouse.get_pos()
                     with self.lock:
                         # 计算鼠标位置对应的高度
+                        # 这一段计算怎么理解？
+                        # 首先，GROUND_Y是地面的Y坐标，也就是球的最大高度对应的Y坐标。
+                        # 然后，减去ball_radius是为了让球的中心Y坐标与地面Y坐标对齐，而不是球的底部Y坐标与地面Y坐标对齐。
+                        # 最后，除以SCALE_FACTOR是为了将高度从米转换为像素，因为我们的模拟是在米和像素之间进行转换的。
                         self.current_height = (GROUND_Y - ball_radius - mouse_y) / SCALE_FACTOR
                         self.initial_height = self.current_height
                         self.ball_x = mouse_x
@@ -119,6 +124,7 @@ class FreeFallSimulator:
 
     def simulation_loop(self):
         """物理模拟主循环"""
+        # 主要都是time_step
         while self.running:
             if not self.paused and not self.dragging:  # 拖动时暂停模拟
                 with self.lock:
@@ -134,7 +140,7 @@ class FreeFallSimulator:
                         displacement = self.velocity * self.time_step
                         self.current_height += displacement
 
-                    # 触地检测与反弹
+                    # 触地检测与反弹，没有考虑圆的半径
                     if self.current_height <= 0:
                         self.current_height = 0
                         self.falling = False
@@ -168,7 +174,7 @@ class FreeFallSimulator:
         with self.lock:
             # 计算小球在屏幕上的位置
             ball_y = GROUND_Y - ball_radius - (self.current_height * SCALE_FACTOR)
-            pygame.draw.circle(self.screen, (255, 0, 0), (self.ball_x, int(ball_y)), ball_radius)
+            pygame.draw.circle(self.screen, (255, 255, 0), (self.ball_x, int(ball_y)), ball_radius)
             
             # 标注球的信息
             ball_info = self.small_font.render(f"{self.current_height:.1f}m", True, (0, 0, 0))
@@ -219,4 +225,6 @@ if __name__ == "__main__":
     simulator = FreeFallSimulator()
     simulator.initial_height = initial_height
     simulator.current_height = initial_height
+
+    # 初始化结束
     simulator.run()
