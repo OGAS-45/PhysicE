@@ -131,10 +131,10 @@ class FreeFallSimulator:
                         new_ball_y = mouse_y + self.drag_offset_y
                         # 计算新高度
                         self.current_height = (GROUND_Y - ball_radius - new_ball_y) / SCALE_FACTOR
-                        # 停止当前运动
+                        # 拖动时仅暂停垂直重力，保留水平速度计算
                         self.velocity = 0.0
-                        self.falling = True
-                    # 更新鼠标状态用于计算速度
+                        self.falling = False  # 拖动时停止下落
+                    # 实时更新鼠标状态，确保最后一刻速度准确
                     self.last_mouse_x = mouse_x
                     self.last_mouse_y = mouse_y
                     self.last_mouse_time = pygame.time.get_ticks()
@@ -145,22 +145,26 @@ class FreeFallSimulator:
                     # 计算拖动速度
                     current_time = pygame.time.get_ticks()
                     time_diff = current_time - self.last_mouse_time
-                    if time_diff > 0:  # 避免除以零
+                    print(time_diff)
+                    if time_diff > 10:  # 忽略极短时间拖动（<10ms）
+                        # 获取当前鼠标位置
+                        mouse_x, mouse_y = pygame.mouse.get_pos()
                         # 计算鼠标移动距离
                         dx = mouse_x - self.last_mouse_x
                         dy = mouse_y - self.last_mouse_y
                         
-                        # 计算鼠标速度 (像素/毫秒)
+                        # 计算鼠标速度 (像素/毫秒) 并增加增益系数
                         mouse_velocity_x = dx / time_diff
                         mouse_velocity_y = dy / time_diff
                         
-                        # 转换为小球速度 (米/秒)，考虑缩放因子和时间单位
-                        scale = 1000.0 / SCALE_FACTOR
-                        self.horizontal_velocity = mouse_velocity_x * scale
-                        self.velocity = mouse_velocity_y * scale  # 正值表示向下
+                        # 调整缩放因子和增益，增强惯性效果
+                        scale = 1500.0 / SCALE_FACTOR  # 增加缩放比例
+                        gain = 1.5  # 新增速度增益系数
+                        self.horizontal_velocity = mouse_velocity_x * scale * gain
+                        self.velocity = mouse_velocity_y * scale * gain  # 正值表示向下
                         
-                        # 限制最大速度，避免异常运动
-                        max_velocity = 20.0
+                        # 调整最大速度限制
+                        max_velocity = 30.0  # 提高最大速度
                         self.horizontal_velocity = max(-max_velocity, min(self.horizontal_velocity, max_velocity))
                         self.velocity = max(-max_velocity, min(self.velocity, max_velocity))
 
