@@ -15,6 +15,8 @@ GROUND_Y = SCREEN_HEIGHT - 50  # 地面位置
 ball_radius = 20  # 小球半径
 SCALE_FACTOR = 3  # 缩放因子，将米转换为像素
 
+# 为什么有时候惯性有效有时候惯性无效呢？
+
 class FreeFallSimulator:
     def __init__(self):
         # 初始化Pygame
@@ -44,6 +46,10 @@ class FreeFallSimulator:
         self.dragging = False  # 是否正在拖动
         self.drag_offset_x = 0  # 拖动时鼠标与球中心的X偏移
         self.drag_offset_y = 0  # 拖动时鼠标与球中心的Y偏移
+        
+        # 优化：记录鼠标轨迹用于瞬时速度计算
+        self.mouse_trajectory = []  # 存储最近的鼠标位置 [(x1,y1,t1), (x2,y2,t2), ...]
+        self.trajectory_max_length = 5  # 最多记录5个点
         
         # 新增拖动惯性相关变量
         self.last_mouse_x = 0
@@ -117,14 +123,18 @@ class FreeFallSimulator:
                         # 计算偏移量
                         self.drag_offset_x = self.ball_x - mouse_x
                         self.drag_offset_y = ball_y - mouse_y
-                        # 记录初始拖动状态
+                        # 简化：初始化轨迹记录
+                        self.mouse_trajectory = [(mouse_x, mouse_y, pygame.time.get_ticks())]
                         self.last_mouse_x = mouse_x
                         self.last_mouse_y = mouse_y
                         self.last_mouse_time = pygame.time.get_ticks()
+                        print("last_mouse_time")
+                        print( self.last_mouse_time)
             elif event.type == MOUSEMOTION:
                 # 拖动球
                 if self.dragging:
                     mouse_x, mouse_y = pygame.mouse.get_pos()
+                    current_time = pygame.time.get_ticks()
                     with self.lock:
                         # 更新球的位置
                         self.ball_x = mouse_x + self.drag_offset_x
@@ -134,22 +144,53 @@ class FreeFallSimulator:
                         # 拖动时仅暂停垂直重力，保留水平速度计算
                         self.velocity = 0.0
                         self.falling = False  # 拖动时停止下落
-                    # 实时更新鼠标状态，确保最后一刻速度准确
+                    # 记录鼠标轨迹（仅保留最近5个点）
+                    self.mouse_trajectory.append((mouse_x, mouse_y, current_time))
+                    if len(self.mouse_trajectory) > self.trajectory_max_length:
+                        self.mouse_trajectory.pop(0)
+                    # 仅更新鼠标位置，不更新时间戳
                     self.last_mouse_x = mouse_x
                     self.last_mouse_y = mouse_y
-                    self.last_mouse_time = pygame.time.get_ticks()
+                    # 移除这行：self.last_mouse_time = pygame.time.get_ticks()
+                    # 小球有时候不会弹的原因是mouseDown是一直在执行的
             elif event.type == MOUSEBUTTONUP:
                 if event.button == 1 and self.dragging:
                     # 结束拖动
                     self.dragging = False
-                    # 计算拖动速度
+                    # 优化：使用最后两个轨迹点计算瞬时速度
+                    if len(self.mouse_trajectory) >= 2:
+                        # 获取最后两个有效轨迹点
+                        (x1, y1, t1), (x2, y2, t2) = self.mouse_trajectory[-2], self.mouse_trajectory[-1]
+                        time_diff = t2 - t1
+                        if time_diff > 5:  # 最小时间差阈值
+                            dx = x2 - x1
+                            dy = y2 - y1
+                            # 计算瞬时速度（像素/毫秒）
+                            mouse_velocity_x = dx / time_diff
+                            mouse_velocity_y = dy / time_diff
+                            
+                            # 物理参数调整
+                            scale = 1200.0 / SCALE_FACTOR  # 缩放因子
+                            gain = 1.8  # 速度增益
+                            max_velocity = 120.0  # 最大速度限制
+                            
+                            # 应用速度
+                            self.horizontal_velocity = mouse_velocity_x * scale * gain
+                            self.velocity = mouse_velocity_y * scale * gain
+                            
+                            # 速度限制
+                            self.horizontal_velocity = max(-max_velocity, min(self.horizontal_velocity, max_velocity))
+                            self.velocity = max(-max_velocity, min(self.velocity, max_velocity))
+                    # 清空轨迹记录
+                    self.mouse_trajectory.clear()
                     current_time = pygame.time.get_ticks()
-                    time_diff = current_time - self.last_mouse_time
-                    print(time_diff)
+                    # 使用拖动开始时的时间计算总时长
+                    time_diff = current_time - self.last_mouse_time  # 现在这是拖动开始时的时间
+                    print(f"拖动总时长: {time_diff}ms")
                     if time_diff > 10:  # 忽略极短时间拖动（<10ms）
                         # 获取当前鼠标位置
                         mouse_x, mouse_y = pygame.mouse.get_pos()
-                        # 计算鼠标移动距离
+                        # 计算鼠标移动距离（从拖动开始到结束）
                         dx = mouse_x - self.last_mouse_x
                         dy = mouse_y - self.last_mouse_y
                         
@@ -164,7 +205,7 @@ class FreeFallSimulator:
                         self.velocity = mouse_velocity_y * scale * gain  # 正值表示向下
                         
                         # 调整最大速度限制
-                        max_velocity = 30.0  # 提高最大速度
+                        max_velocity = 90.0  # 提高最大速度
                         self.horizontal_velocity = max(-max_velocity, min(self.horizontal_velocity, max_velocity))
                         self.velocity = max(-max_velocity, min(self.velocity, max_velocity))
 
@@ -239,12 +280,27 @@ class FreeFallSimulator:
             ball_info = self.small_font.render(f"{self.current_height:.1f}m", True, (0, 0, 0))
             info_rect = ball_info.get_rect(center=(self.ball_x, int(ball_y)))
             self.screen.blit(ball_info, info_rect)
-        
+            
+            # 绘制鼠标拖动轨迹
+            if self.dragging and len(self.mouse_trajectory) > 1:
+                # 绘制轨迹线
+                pygame.draw.lines(self.screen, (100, 200, 255), False, 
+                                 [(x, y) for x, y, t in self.mouse_trajectory], 2)
+                # 绘制轨迹点，最近的点更大更亮
+                for i, (x, y, t) in enumerate(self.mouse_trajectory):
+                    size = 3 + i * 2  # 轨迹点逐渐变大
+                    alpha = 100 + i * 30  # 轨迹点逐渐变亮
+                    # 创建带透明度的颜色
+                    color = (100, 200, 255, alpha)
+                    # 绘制轨迹点
+                    pygame.draw.circle(self.screen, color[:3], (x, y), size)
+
         # 绘制信息文本
         if self.show_info:
             with self.lock:
                 height_text = self.font.render(f"高度: {self.current_height:.2f} 米", True, (0, 0, 0))
-                velocity_text = self.font.render(f"速度: {abs(self.velocity):.2f} m/s", True, (0, 0, 0))
+                # 修改速度显示，同时显示水平和垂直速度
+                velocity_text = self.font.render(f"速度: 水平 {self.horizontal_velocity:.2f} 垂直 {self.velocity:.2f} m/s", True, (0, 0, 0))
                 time_text = self.font.render(f"时间: {self.time_elapsed:.2f} 秒", True, (0, 0, 0))
                 rebound_text = self.font.render(f"反弹次数: {self.rebound_count}", True, (0, 0, 0))
                 step_text = self.small_font.render(f"时间步长: {self.time_step:.2f}秒 (↑↓调整)", True, (0, 0, 0))
