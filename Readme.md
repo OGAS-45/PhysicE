@@ -1,73 +1,42 @@
-根据依赖包清单批量安装包
-pip install -r requirements.txt
+# PhysicE
 
+基于 Python 和 Pygame 的物理运动可视化实验，保留从自由落体到速度、惯性控制的不同版本。
 
+## 开始使用
 
+先准备 Python 3 环境，再执行：
 
-
-# PhysicE - 物理运动模拟项目
-
-## 项目简介
-PhysicE是一个基于Python和Pygame的物理运动模拟项目，专注于可视化各种运动状态。
-
-## 环境要求
-- macOS 10.15+ 或其他兼容系统
-- Python 3.8+
-- Homebrew (macOS包管理器)
-
-## 部署步骤
-
-### 1. 安装Python和依赖工具
 ```bash
-# 安装Homebrew (如果尚未安装)
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-
-# 安装Python 3
-brew install python3
-2. 克隆项目仓库
-bash
-git clone https://github.com/yourusername/PhysicE.git
+git clone https://github.com/OGAS-45/PhysicE.git
 cd PhysicE
-3. 创建并激活虚拟环境
-bash
-python3 -m venv venv
-source venv/bin/activate  # macOS/Linux
-4. 安装项目依赖
-bash
-pip install -r requirements.txt
-如果是mac用户的话就用
-pip3 install -r requirements.txt
-运行项目
-bash
-python 3-Any_Motion_with_+V.py
-项目结构
-plaintext
-PhysicE/
-├── 3-Any_Motion_with_+V.py   # 主程序
-├── requirements.txt          # 依赖列表
-├── assets/                   # 资源文件（图像、声音等）
-└── docs/                     # 文档（可选）
-依赖列表
-plaintext
-pygame==2.6.1
-贡献指南
-Fork 本仓库
-创建特性分支 (git checkout -b feature/new-feature)
-提交更改 (git commit -am 'Add new feature')
-推送至分支 (git push origin feature/new-feature)
-创建 Pull Request
-许可证
-本项目采用MIT 许可证
-plaintext
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+```
 
+Windows 可使用 `python -m venv .venv`，在 PowerShell 中通过 `.venv\Scripts\Activate.ps1` 激活环境。
 
-### 其他建议
+## 选择实验
 
-1. **版本控制**：确保项目根目录下有.gitignore文件，内容至少包含：
+| 文件 | 版本主题 |
+|---|---|
+| `1-Free_Fall_Motion.py` | 自由落体 |
+| `2-Any_Motion.py` | 运动实验 |
+| `3-Any_Motion_with_+V copy.py` | 速度控制版本 |
+| `4-Any_Motion_with_inertia_inx.py` | 惯性版本 |
 
+例如：
 
+```bash
+python "1-Free_Fall_Motion.py"
+python "3-Any_Motion_with_+V copy.py"
+```
 
+一次运行一个实验。含空格的文件名需要引号；不同版本的具体操作以脚本实现为准。
 
-venv/
-pycache/
-.DS_Store
+## 维护状态
+
+- 本次修正了 README 的代码块、克隆地址和脚本文件名，未修改实验代码或重新验证图形窗口。
+- 旧版本脚本作为实验过程保留，不自动删除或覆盖。
+- 根目录中的 `.gitingnore` 名称需要另行修正；本次没有将它重命名，也不把它视为有效的 `.gitignore`。
+- 历史说明标注 MIT，但当前根目录未见 LICENSE 文件，需维护者确认后补齐，不在文档整理时擅自新增授权。
